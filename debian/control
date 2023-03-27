@@ -1,0 +1,17 @@
+Source: yappla
+Section: unknown
+Priority: optional
+Maintainer: Daniele Calisi <daniele.calisi@gmail.com> 
+Build-Depends: debhelper-compat (= 12), dh-python, python3-setuptools, python3-all
+Standards-Version: 4.4.1
+Homepage: https://github.com/magazino/yappla
+
+Package: python3-yappla
+Architecture: all
+Depends: ${python3:Depends}, ${misc:Depends}
+Description: YAPPLA is a naive AI planner (Python 3)
+ This repository contains a naive AI planner (basically Dijkstra search in
+ the state space). It also contains the interface to the Unified Planning
+ library.
+ .
+ This package installs the library for Python 3.

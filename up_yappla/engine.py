@@ -15,7 +15,7 @@
 import re
 from typing import Optional, Callable, IO, List
 import unified_planning as up
-
+import unified_planning.engines as engines
 
 from yappla import (
     Planner as YPlanner,
@@ -25,10 +25,10 @@ from yappla import (
 )
 
 
-class EngineImpl(up.engines.Engine, up.engines.mixins.OneshotPlannerMixin):
+class EngineImpl(engines.Engine, engines.mixins.OneshotPlannerMixin):
     def __init__(self, **options):
-        up.engines.Engine.__init__(self)
-        up.engines.mixins.OneshotPlannerMixin.__init__(self)
+        engines.Engine.__init__(self)
+        engines.mixins.OneshotPlannerMixin.__init__(self)
         self._planners = {}
         self._fluent_value_replacements = {}
         if len(options) > 0:
@@ -97,10 +97,10 @@ class EngineImpl(up.engines.Engine, up.engines.mixins.OneshotPlannerMixin):
             raise Exception(f"Unsupported fnode: {type(fnode)} {fnode}")
 
     def _solve(self, problem: 'up.model.AbstractProblem',
-               callback: Optional[Callable[['up.engines.PlanGenerationResult'], None]] = None,
+               callback: Optional[Callable[['engines.PlanGenerationResult'], None]] = None,
                heuristic: Optional[Callable[["up.model.state.ROState"], Optional[float]]] = None,
                timeout: Optional[float] = None,
-               output_stream: Optional[IO[str]] = None) -> 'up.engines.results.PlanGenerationResult':
+               output_stream: Optional[IO[str]] = None) -> 'engines.results.PlanGenerationResult':
 
         if problem.name not in self._planners:
             # in YAPPLA fluents can be either Python booleans or strings
@@ -148,8 +148,8 @@ class EngineImpl(up.engines.Engine, up.engines.mixins.OneshotPlannerMixin):
             init_ystate[key] = eval(fluent_value_replacements[str(val)])
 
         plan = yplanner.plan(init_ystate)
-        res = up.engines.PlanGenerationResultStatus.UNSOLVABLE_PROVEN if plan is None else up.engines.PlanGenerationResultStatus.SOLVED_SATISFICING
-        return up.engines.PlanGenerationResult(res, plan, self.name)
+        res = engines.PlanGenerationResultStatus.UNSOLVABLE_PROVEN if plan is None else engines.PlanGenerationResultStatus.SOLVED_SATISFICING
+        return engines.PlanGenerationResult(res, plan, self.name)
 
     @staticmethod
     def supported_kind() -> up.model.ProblemKind:

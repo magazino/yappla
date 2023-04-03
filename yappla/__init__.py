@@ -7,3 +7,6 @@ from .state import State
 from .state_variable import StateVariable
 from .domain import Domain
 from .planner import Planner
+
+__version__ = "0.0.1"
+

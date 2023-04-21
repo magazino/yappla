@@ -43,6 +43,8 @@ class Domain:
         )
 
     def load_from_dict(self, definition):
+        if "domain" in definition:
+            definition = definition["domain"]
         for action_name, action_definition in definition["actions"].items():
             yaction = Action(name=action_name, **action_definition)
             self.add_action(yaction)

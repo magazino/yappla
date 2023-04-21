@@ -25,6 +25,12 @@ from yappla import (
 )
 
 
+class SequentialPlanWithExpectedStates(up.plans.SequentialPlan):
+    def __init__(self, expected_states, actions, environment=None):
+        super().__init__(actions, environment)
+        self._expected_states = expected_states
+
+
 class EngineImpl(engines.Engine, engines.mixins.OneshotPlannerMixin):
     def __init__(self, **options):
         engines.Engine.__init__(self)
@@ -102,6 +108,10 @@ class EngineImpl(engines.Engine, engines.mixins.OneshotPlannerMixin):
                timeout: Optional[float] = None,
                output_stream: Optional[IO[str]] = None) -> 'engines.results.PlanGenerationResult':
 
+        quality_metric = None
+        if len(problem.quality_metrics) > 0 and isinstance(problem.quality_metrics[0], up.model.metrics.MinimizeActionCosts):
+            quality_metric = problem.quality_metrics[0]
+
         if problem.name not in self._planners:
             # in YAPPLA fluents can be either Python booleans or strings
             fluent_value_replacements = {"true": "True", "false": "False"}
@@ -126,15 +136,13 @@ class EngineImpl(engines.Engine, engines.mixins.OneshotPlannerMixin):
                     yeffect[self._fnode_to_python_expression(e.fluent)] = eval(fluent_value_replacements[str(e.value)])
 
                 yaction = YAction(name=a.name, preconditions=yprecond, effects=[yeffect])
+                yaction.cost = quality_metric.get_action_cost(a).constant_value()
+                print("ACTION", yaction)
                 ydomain.add_action(yaction)
-
-            ygoal = self._fnode_to_python_expression(problem.goals[0])
-            #ygoal = CompiledExpression(ygoal)
 
             yplanner = YPlanner()
             #yplanner.verbosity_level = 2
             yplanner.set_domain(ydomain)
-            yplanner.set_goal(ygoal)
             self._planners[problem.name] = yplanner
             self._fluent_value_replacements[problem.name] = fluent_value_replacements
 
@@ -147,9 +155,20 @@ class EngineImpl(engines.Engine, engines.mixins.OneshotPlannerMixin):
             key = self._fnode_to_python_expression(key)
             init_ystate[key] = eval(fluent_value_replacements[str(val)])
 
-        plan = yplanner.plan(init_ystate)
-        res = engines.PlanGenerationResultStatus.UNSOLVABLE_PROVEN if plan is None else engines.PlanGenerationResultStatus.SOLVED_SATISFICING
-        return engines.PlanGenerationResult(res, plan, self.name)
+        # generate plan
+        print("CURRENT GOAL", problem.goals[0])
+        ygoal = self._fnode_to_python_expression(problem.goals[0])
+        #ygoal = CompiledExpression(ygoal)
+        planner_result = yplanner.plan(init_ystate, ygoal)
+
+        # convert the YAPPLA result to UP result
+        res = engines.PlanGenerationResultStatus.UNSOLVABLE_PROVEN if planner_result.plan is None else engines.PlanGenerationResultStatus.SOLVED_SATISFICING
+        expected_state_list, action_list = zip(*planner_result.plan)
+        action_list = [up.plans.ActionInstance(problem.action(action_name)) for action_name in action_list if action_name is not None]
+        plan = SequentialPlanWithExpectedStates(expected_state_list, action_list)
+        ret = engines.PlanGenerationResult(res, plan, self.name)
+        ret.metrics = {"stats": planner_result.stats}
+        return ret
 
     @staticmethod
     def supported_kind() -> up.model.ProblemKind:

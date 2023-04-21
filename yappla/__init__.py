@@ -3,12 +3,16 @@ from .utils import CompiledExpression
 from .goal import Goal
 from .plan import Plan
 from .plan import PlannerResult
+from .plan import PlannerOutcome
 from .state import State
 from .state_variable import StateVariable
 from .domain import Domain
 from .planner import Planner
 
-__version__ = "0.0.1"
+import subprocess
+import re
+
+__version__ = "ERR"
 try:
     git_version = subprocess.check_output(
         ["git", "describe", "--tags", "--dirty=-wip"], stderr=subprocess.STDOUT
@@ -19,7 +23,8 @@ try:
     match = re.match(r"^v(\d+)\.(\d)+\.(\d)$", tag)
     if match is not None:
         MAJOR, MINOR, REL = tuple(int(x) for x in match.groups())
-    import code; code.interact(local=locals())
+    else:
+        MAJOR, MINOR, REL = (0, 0, 0)
     try:
         COMMITS = int(data[1])
     except ValueError:
@@ -36,5 +41,6 @@ try:
         VERSION = (MAJOR, MINOR, REL, COMMITS, "dev", 1)
         __version__ = f"{MAJOR}.{MINOR}.{REL}.{COMMITS}.dev1"
 except Exception as ex:
+    print(ex)
     pass
 

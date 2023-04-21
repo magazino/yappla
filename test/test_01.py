@@ -1,5 +1,5 @@
 import yappla
-from yappla.plan import PlannerResult
+from yappla.plan import PlannerOutcome
 
 
 def test_feet_shoes():
@@ -33,7 +33,7 @@ def test_feet_shoes():
 
     planner = yappla.Planner()
     planner.set_domain(domain)
-    plan = planner.plan(initial_state, goal)
+    planner_result = planner.plan(initial_state, goal)
 
-    assert plan.result == PlannerResult.PLAN_TO_GOAL
-    assert len(plan) == 5  # 4 actions + the final goal state without actions
+    assert planner_result.outcome == PlannerOutcome.SUCCESS
+    assert len(planner_result.plan) == 5  # 4 actions + the final goal state without actions

@@ -4,7 +4,7 @@ import logging
 
 from .state import State
 from .utils import CompiledExpression, bc, PriorityQueue
-from .plan import Plan, PlannerResult
+from .plan import Plan, PlannerOutcome, PlannerResult
 
 
 class Planner:
@@ -35,16 +35,7 @@ class Planner:
         initial_state = State(copy.deepcopy(initial_state))
         cur_goal_str = self._compute_cur_goal(initial_state)
         cur_goal_expr = CompiledExpression(cur_goal_str)
-        initial_state_satisfies_constraints = True
-        #initial_state.satisfies_constraints(
-        #    self._domain.constraints
-        #)
         self._print(1, "")
-        if not initial_state_satisfies_constraints:
-            self._print(
-                2,
-                f"{bc.ORANGE}Constraints violated! The goal will be to return to the closest acceptable state{bc.ENDC}",
-            )
         self._print(1, f"Planning from state: {initial_state.pretty_str()}")
         self._print(1, f"To goal: {cur_goal_str}")
         open_pq = PriorityQueue()
@@ -53,7 +44,7 @@ class Planner:
             (None, None, initial_state)
         ]  # contains tuples (prev_state, action, new_state), to_reach also needs full states to reconstruct the plan
         visited = []
-        plan = Plan(self)
+        planner_result = PlannerResult(self)
         planning_iterations = 0
         while planning_iterations < self.max_iterations:
             # choose the state we expand from
@@ -70,26 +61,17 @@ class Planner:
                 print(".", end="")
 
             # let's decide if we reached the current goal
-            goal_reached = False
-            if not initial_state_satisfies_constraints:
-                #goal_reached = state.satisfies_constraints(self._domain.constraints)
-                pass
-            else:
-                goal_reached = cur_goal_expr.eval_in_state(state)
+            goal_reached = cur_goal_expr.eval_in_state(state)
 
             # if we reached the goal, we compute the plan and exit the planning loop
             if goal_reached:
                 if self.verbosity_level == 1:
                     print(f"[{planning_iterations}]")
-                if not initial_state_satisfies_constraints:
-                    self._print(
-                        1,
-                        f"{bc.BOLD}{bc.ORANGE}=== FOUND A PLAN TO RESTORE A LEGAL STATE ==={bc.ENDC}",
-                    )
-                else:
-                    self._print(
-                        1, f"{bc.BOLD}{bc.GREEN}=== FOUND A PLAN TO GOAL ==={bc.ENDC}"
-                    )
+                self._print(
+                    1, f"{bc.BOLD}{bc.GREEN}=== FOUND A PLAN TO GOAL ==={bc.ENDC}"
+                )
+
+                plan = Plan()
                 # compute the plan by starting from the goal backward to the initial state
                 plan.append((state, None))  # this is the (goal state, no action)
                 while state:
@@ -101,6 +83,7 @@ class Planner:
                             state = ss[0]
                             break  # I expect only one matching in to_reach
                 plan.reverse()
+                planner_result.plan = plan
                 break
 
             # expand the state extracted from the priority queue
@@ -111,9 +94,7 @@ class Planner:
                     for new_state in new_states:
                         if new_state in visited:
                             continue
-                        #if initial_state_satisfies_constraints and not new_state.satisfies_constraints(self._domain.constraints):
-                            # TODO for debugging purposes it is better to show these states in the logs
-                            continue
+
                         if new_state in open_pq:
                             # the state was already in the open queue,
                             # if this cost is better, we should update
@@ -136,25 +117,22 @@ class Planner:
 
         self._print(1, f"Iterations: {planning_iterations}")
         self._print(1, f"Planning time: {(time.thread_time() - initial_time) * 1000.0:.3f} milliseconds")
-        if len(plan) == 0:
+        if planner_result.plan is None:
             self._print(1, f"{bc.ORANGE}Cannot find a plan{bc.ENDC}")
-            plan.result = PlannerResult.PLANNER_FAILED
-        elif len(plan) == 1:
+            planner_result.outcome = PlannerOutcome.FAILURE
+        elif len(planner_result.plan) == 1:
             self._print(1, f"{bc.BOLD}{bc.GREEN}=== ALREADY AT GOAL!!! ==={bc.ENDC}")
-            plan.result = PlannerResult.ALREADY_AT_GOAL
+            planner_result.outcome = PlannerOutcome.ALREADY_AT_GOAL
         else:
-            if initial_state_satisfies_constraints:
-                plan.result = PlannerResult.PLAN_TO_GOAL
-            else:
-                plan.result = PlannerResult.PLAN_TO_ADMISSIBLE_STATE
+            planner_result.outcome = PlannerOutcome.SUCCESS
             self._print(1, f"{bc.BOLD}{bc.GREEN}=== PLAN: ==={bc.ENDC}")
-            self._print(1, f"{plan.pretty_str()}")
+            self._print(1, f"{planner_result.pretty_str()}")
 
-        plan.stats = {
+        planner_result.stats = {
             "time": time.thread_time() - initial_time,
             "iterations": planning_iterations,
         }
-        return plan
+        return planner_result
 
     def set_goal(self, goal):
         self._cur_goal = {"goal": goal.replace("\n", " ")}

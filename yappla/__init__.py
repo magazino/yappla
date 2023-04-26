@@ -11,16 +11,20 @@ from .planner import Planner
 
 import subprocess
 import re
+import os
 
+
+VERSION = (0, 0, 0, "ERR", 1)
 __version__ = "ERR"
+
 try:
     git_version = subprocess.check_output(
-        ["git", "describe", "--tags", "--dirty=-wip"], stderr=subprocess.STDOUT
+        ["git", "describe", "--tags", "--dirty=-wip"], stderr=subprocess.DEVNULL
     )
     output = git_version.strip().decode("ascii")
     data = output.split("-")
     tag = data[0]
-    match = re.match(r"^v(\d+)\.(\d)+\.(\d)$", tag)
+    match = re.match(r"^v?(\d+)\.(\d)+\.(\d)+$", tag)
     if match is not None:
         MAJOR, MINOR, REL = tuple(int(x) for x in match.groups())
     else:
@@ -40,7 +44,7 @@ try:
     else:
         VERSION = (MAJOR, MINOR, REL, COMMITS, "dev", 1)
         __version__ = f"{MAJOR}.{MINOR}.{REL}.{COMMITS}.dev1"
-except Exception as ex:
-    print(ex)
+
+except Exception:
     pass
 

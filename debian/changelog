@@ -1,4 +1,4 @@
-yappla (0.0.2) unstable; urgency=medium
+yappla (0.0.2-1) unstable; urgency=medium
 
   * Bugfix: priority queue handling after updating an element
 

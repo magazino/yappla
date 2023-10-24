@@ -8,17 +8,22 @@ from .plan import Plan, PlannerOutcome, PlannerResult
 
 
 class Planner:
+    class FakePrintLogger:
+        def info(self, message):
+            print("[YAPPLA] " + message)
+
     def __init__(self, logger=None):
         self.max_iterations = 10000
         self._cur_goal = None
         self._domain = None
-        self.verbosity_level = 0  # 0 no messages, 1 only a few, 2 everything
+        self.max_verbosity_level = 0  # 0 no messages, 1 only a few, 2 everything
         if not logger:
-            console = logging.StreamHandler()
-            formatter = logging.Formatter("%(levelname)-8s:%(name)-12s: %(message)s")
-            console.setFormatter(formatter)
-            logger = logging.getLogger("MagPlanner")
-            logger.addHandler(console)
+            #console = logging.StreamHandler()
+            #formatter = logging.Formatter("%(levelname)-8s:%(name)-12s: %(message)s")
+            #console.setFormatter(formatter)
+            #logger = logging.getLogger("MagPlanner")
+            #logger.addHandler(console)
+            logger = Planner.FakePrintLogger()
         self.logger = logger
 
     def set_domain(self, domain):
@@ -35,9 +40,9 @@ class Planner:
         initial_state = State(copy.deepcopy(initial_state))
         cur_goal_str = self._compute_cur_goal(initial_state)
         cur_goal_expr = CompiledExpression(cur_goal_str)
-        self._print(1, "")
-        self._print(1, f"Planning from state: {initial_state.pretty_str()}")
-        self._print(1, f"To goal: {cur_goal_str}")
+        self.log(1, "")
+        self.log(1, f"Planning from state: [{initial_state.hash()}]\n{initial_state.pretty_str()}")
+        self.log(1, f"To goal: {cur_goal_str}")
         open_pq = PriorityQueue()
         open_pq.push(initial_state, 0)  # state descriptions are taken from here
         to_reach = [
@@ -53,11 +58,11 @@ class Planner:
             state, cur_state_cost = open_pq.pop()
             visited.append(state)
             planning_iterations += 1
-            if self.verbosity_level == 2:
-                self._print(
-                    2, f"Planning: expanding from state: {state.pretty_str()}"
+            if self.max_verbosity_level >= 2:
+                self.log(
+                    2, f"(O) [{state.hash()}] cost={cur_state_cost}\n{state.pretty_str()}"
                 )
-            elif self.verbosity_level == 1:
+            elif self.max_verbosity_level == 1:
                 print(".", end="")
 
             # let's decide if we reached the current goal
@@ -65,9 +70,9 @@ class Planner:
 
             # if we reached the goal, we compute the plan and exit the planning loop
             if goal_reached:
-                if self.verbosity_level == 1:
-                    print(f"[{planning_iterations}]")
-                self._print(
+                if self.max_verbosity_level == 1:
+                    self.log(1, f"[{planning_iterations}]")
+                self.log(
                     1, f"{bc.BOLD}{bc.GREEN}=== FOUND A PLAN TO GOAL ==={bc.ENDC}"
                 )
 
@@ -90,8 +95,9 @@ class Planner:
             for action in self._domain.actions.values():
                 applicable = action.applicable(state)
                 if applicable:
-                    new_states = action.possible_outcomes(state, self.verbosity_level == 2)
+                    new_states = action.possible_outcomes(state) #, self.max_verbosity_level == 3)
                     for new_state in new_states:
+                        self.log(3, f"[{state.hash()}] -- {bc.CYAN}{action.name}{bc.ENDC} ({action.cost}) -> [{new_state.hash()}]\n{new_state.pretty_str()}")
                         if new_state in visited:
                             continue
 
@@ -109,24 +115,24 @@ class Planner:
                             open_pq.push(new_state, cur_state_cost + action.cost)
                             to_reach.append((state, action.name, new_state))
                 else:
-                    self._print(
-                        3, f"Action action {bc.CYAN}{action.name}{bc.ENDC} not applicable"
+                    self.log(
+                        3, f"{bc.CYAN}{action.name}{bc.ENDC} not applicable"
                     )
-            if self.verbosity_level == 2:
-                self._print(2, "")
+            if self.max_verbosity_level == 2:
+                self.log(2, "")
 
-        self._print(1, f"Iterations: {planning_iterations}")
-        self._print(1, f"Planning time: {(time.thread_time() - initial_time) * 1000.0:.3f} milliseconds")
+        self.log(1, f"Iterations: {planning_iterations}")
+        self.log(1, f"Planning time: {(time.thread_time() - initial_time) * 1000.0:.3f} milliseconds")
         if planner_result.plan is None:
-            self._print(1, f"{bc.ORANGE}Cannot find a plan{bc.ENDC}")
+            self.log(1, f"{bc.ORANGE}Cannot find a plan{bc.ENDC}")
             planner_result.outcome = PlannerOutcome.FAILURE
         elif len(planner_result.plan) == 1:
-            self._print(1, f"{bc.BOLD}{bc.GREEN}=== ALREADY AT GOAL!!! ==={bc.ENDC}")
+            self.log(1, f"{bc.BOLD}{bc.GREEN}=== ALREADY AT GOAL!!! ==={bc.ENDC}")
             planner_result.outcome = PlannerOutcome.ALREADY_AT_GOAL
         else:
             planner_result.outcome = PlannerOutcome.SUCCESS
-            self._print(1, f"{bc.BOLD}{bc.GREEN}=== PLAN: ==={bc.ENDC}")
-            self._print(1, f"{planner_result.pretty_str()}")
+            self.log(1, f"{bc.BOLD}{bc.GREEN}=== PLAN: ==={bc.ENDC}")
+            self.log(1, f"{planner_result.pretty_str(True)}")
 
         planner_result.stats = {
             "time": time.thread_time() - initial_time,
@@ -137,8 +143,8 @@ class Planner:
     def set_goal(self, goal):
         self._cur_goal = {"goal": goal.replace("\n", " ")}
 
-    def _print(self, level, message):
-        if level <= self.verbosity_level:
+    def log(self, level, message):
+        if level <= self.max_verbosity_level:
             self.logger.info(message)
 
     def _compute_cur_goal(self, cur_state):

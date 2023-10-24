@@ -1,3 +1,5 @@
+import hashlib
+import base64
 from typing import Dict, List, Union
 
 from .utils import bc, eval_expression
@@ -34,9 +36,12 @@ class State(dict):
         """
         return eval_expression(conditions, self)
 
-    def pretty_str(self, columns: bool = True) -> str:
+    def pretty_str(self, columns: bool = True, show_hashes: bool = False, diff_with: "State" = None) -> str:
         if not columns:
-            return ", ".join([f"{bc.BOLD}{k}{bc.ENDC}:{v}" for k, v in self.items()])
+            if show_hashes:
+                return f"[{self.hash()}] " + ", ".join([f"{bc.BOLD}{k}{bc.ENDC}:{v}" for k, v in self.items()])
+            else:
+                return ", ".join([f"{bc.BOLD}{k}{bc.ENDC}:{v}" for k, v in self.items()])
         else:
             sv0 = [(k, v) for k, v in self.items() if not k.endswith("__state")]
             sv1 = list(self.items() - sv0)
@@ -59,4 +64,13 @@ class State(dict):
                 linelen = 0
             for i in range(len(lines)):
                 lines[i] = ', '.join(lines[i])
-            return "\n".join(lines)
+
+            if show_hashes:
+                return f"[{self.hash()}] " + "\n".join(lines)
+            else:
+                return "\n".join(lines)
+
+    def hash(self):
+        h = hashlib.md5()
+        h.update(str(frozenset(self.items())).encode("ascii"))
+        return h.hexdigest()[-6:]

@@ -25,6 +25,7 @@ class PriorityQueue:
             if s[0] == item:
                 s[1] = value
                 break
+        self.queue.sort(key=lambda x: x[1])
 
     def __contains__(self, item):
         return item in (x[0] for x in self.queue)

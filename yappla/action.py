@@ -78,7 +78,7 @@ class Action:
         eff = self.effects
         new_states = []
         if verbose:
-            print(f"Applying action operator {bc.CYAN}{self.name}{bc.ENDC} with effects {eff}")
+            print(f"Applying action operator {bc.CYAN}{self.name}{bc.ENDC} with cost {self.cost} and effects {eff}")
             print(f"  (O) {state.pretty_str()}")
         for e in eff:
             new_state = State({**state, **e})
